@@ -43,3 +43,4 @@
 .idea/**/libraries
 
 out/
+.idea/
