@@ -2,10 +2,14 @@ package server;
 
 import utils.Config;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 public class UDPServer {
@@ -28,21 +32,34 @@ public class UDPServer {
     }
 
     public void runServer() throws IOException {
-        var byteResponse = "OK".getBytes();
+
         while (true) {
             datagramPacket = getDatagramPacket();
             datagramSocket.receive(datagramPacket);
+            String filename = new String(datagramPacket.getData(), 0, datagramPacket.getLength(), StandardCharsets.UTF_8);
 
-            int length = datagramPacket.getLength();
-            String message = new String(datagramPacket.getData(), 0, length, StandardCharsets.UTF_8);
+            File file = new File(filename);
+            FileOutputStream fos = new FileOutputStream(file);
 
-            var address = datagramPacket.getAddress();
-            int port = datagramPacket.getPort();
+            while(true){
+                datagramPacket = getDatagramPacket();
+                datagramSocket.receive(datagramPacket);
+                ByteBuffer bf = ByteBuffer.wrap(datagramPacket.getData());
+                int length = bf.getInt();
 
-            System.out.println("Message: " + message);
-            var response = new DatagramPacket(byteResponse, byteResponse.length, address, port);
-            datagramSocket.send(response);
+                if(length == 0)
+                    break;
+
+                datagramPacket = getDatagramPacket();
+                datagramSocket.receive(datagramPacket);
+                byte[] byteArray = datagramPacket.getData();
+                fos.write(byteArray, 0, length);
+            }
+
+            fos.flush();
+            fos.close();
         }
+
     }
 
     private DatagramPacket getDatagramPacket() {

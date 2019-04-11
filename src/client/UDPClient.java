@@ -2,9 +2,12 @@ package client;
 
 import utils.Config;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class UDPClient {
@@ -25,18 +28,40 @@ public class UDPClient {
     }
 
     public void runClient(boolean once) throws IOException {
+        LOGGER.info("Server address: " + serverAddress);
         do {
-            LOGGER.info("Server address: " + serverAddress);
-            var content = getMessage().getBytes();
-            var sentPacket = new DatagramPacket(content, content.length);
-            sentPacket.setAddress(serverAddress);
-            sentPacket.setPort(Config.PORT);
-            socket.send(sentPacket);
+            System.out.print("Path to file: ");
+            var path = getMessage();
+            FileInputStream fis = new FileInputStream(path);
 
-            var receivedPacket = new DatagramPacket(new byte[Config.BUFFER_SIZE], Config.BUFFER_SIZE);
-            socket.setSoTimeout(1000);
-            socket.receive(receivedPacket);
-            LOGGER.info("Server received message");
+            byte[] byteName = path.getBytes();
+            socket.send(new DatagramPacket(byteName, byteName.length, serverAddress, Config.PORT));
+            wait_ms();
+
+            int count;
+            byte[] byteArray = new byte[Config.BUFFER_SIZE];
+            while((count = fis.read(byteArray)) != -1){
+                byte[] lengthBytes = ByteBuffer.allocate(4).putInt(count).array();
+                socket.send(new DatagramPacket(lengthBytes, 4, serverAddress, Config.PORT));
+                wait_ms();
+
+                socket.send(new DatagramPacket(byteArray, count, serverAddress, Config.PORT));
+                wait_ms();
+            }
+            fis.close();
+
+            byte[] lengthBytes = {0};
+            socket.send(new DatagramPacket(lengthBytes, 1, serverAddress, Config.PORT));
+
         } while (!once);
+
+    }
+
+    private void wait_ms(){
+        try {
+            TimeUnit.MILLISECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
