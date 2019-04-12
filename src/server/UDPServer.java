@@ -1,68 +1,60 @@
 package server;
 
 import utils.Config;
+import utils.User;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UDPServer {
 
     private static UDPServer udpServer = null;
 
     private DatagramSocket datagramSocket;
-    private DatagramPacket datagramPacket;
+    private DatagramSocket socketClient;
+    private DatagramSocket loginSocket;
 
-    private UDPServer() throws SocketException {
-        datagramSocket = new DatagramSocket(Config.PORT);
-        datagramPacket = getDatagramPacket();
-    }
+    private List<User> users;
 
-    public static UDPServer getUdpServer() throws SocketException {
+    public static UDPServer getInstance() {
         if (udpServer == null) {
             udpServer = new UDPServer();
         }
         return udpServer;
     }
 
-    public void runServer() throws IOException {
-
-        while (true) {
-            datagramPacket = getDatagramPacket();
-            datagramSocket.receive(datagramPacket);
-            String filename = new String(datagramPacket.getData(), 0, datagramPacket.getLength(), StandardCharsets.UTF_8);
-
-            File file = new File(filename);
-            FileOutputStream fos = new FileOutputStream(file);
-
-            while(true){
-                datagramPacket = getDatagramPacket();
-                datagramSocket.receive(datagramPacket);
-                ByteBuffer bf = ByteBuffer.wrap(datagramPacket.getData());
-                int length = bf.getInt();
-
-                if(length == 0)
-                    break;
-
-                datagramPacket = getDatagramPacket();
-                datagramSocket.receive(datagramPacket);
-                byte[] byteArray = datagramPacket.getData();
-                fos.write(byteArray, 0, length);
-            }
-
-            fos.flush();
-            fos.close();
+    private UDPServer() {
+        try {
+            socketClient = new DatagramSocket();
+            loginSocket = new DatagramSocket(Config.LOGIN_PORT);
+            datagramSocket = new DatagramSocket(Config.SERVER_PORT);
+        } catch (SocketException e) {
+            e.printStackTrace();
         }
-
+        users = new ArrayList<>();
     }
 
-    private DatagramPacket getDatagramPacket() {
-        return new DatagramPacket(new byte[Config.BUFFER_SIZE], Config.BUFFER_SIZE);
+
+    public void runServer() throws IOException {
+        while (true) {
+            var loginPacket = Config.getDatagramPacket();
+            loginSocket.receive(loginPacket);
+            var login = new String(loginPacket.getData(), 0, loginPacket.getLength(), StandardCharsets.UTF_8);
+            var address = loginPacket.getAddress();
+            var newUser = new User(login, address);
+            if (!users.contains(newUser)) {
+                users.add(newUser);
+            }
+            var greetings = ("Welcome " + newUser + " to e-goat\t").getBytes();
+            socketClient.send(new DatagramPacket(greetings, greetings.length, address, Config.CLIENT_PORT_LISTEN));
+            users.forEach(System.out::println);
+
+
+        }
     }
 }

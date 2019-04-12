@@ -10,10 +10,9 @@ public class Main {
 
     public static void main(String[] args) {
 
-        UDPClient udpClient;
+        UDPClient udpClient = new UDPClient();
         try {
-            udpClient = new UDPClient();
-            udpClient.runClient(false);
+            udpClient.runClient();
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, e.getMessage());
         }

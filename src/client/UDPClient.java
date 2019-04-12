@@ -1,25 +1,61 @@
 package client;
 
+import utils.ClientOptions;
 import utils.Config;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.*;
-import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class UDPClient {
 
     private static Logger LOGGER = Logger.getLogger(UDPClient.class.getName());
     private InetAddress serverAddress;
-    private DatagramSocket socket;
+    private DatagramSocket socketSend;
+    private DatagramSocket socketListen;
 
+    public UDPClient() {
+        try {
+            serverAddress = InetAddress.getByName("localhost");
+            socketSend = new DatagramSocket();
+            socketListen = new DatagramSocket(Config.CLIENT_PORT_LISTEN);
+        } catch (UnknownHostException | SocketException e) {
+            LOGGER.log(Level.SEVERE, e.getMessage());
+        }
+    }
 
-    public UDPClient() throws UnknownHostException, SocketException {
-        serverAddress = InetAddress.getByName("localhost");
-        socket = new DatagramSocket();
+    public void runClient() throws IOException {
+        LOGGER.info("Server address: " + serverAddress);
+        System.out.print("Login: ");
+        var login = getMessage();
+        var loginBytes = login.getBytes();
+        socketSend.send(new DatagramPacket(loginBytes, loginBytes.length, serverAddress, Config.LOGIN_PORT));
+
+        var greetingsPacket = Config.getDatagramPacket();
+        socketListen.receive(greetingsPacket);
+        var greetings = new String(greetingsPacket.getData(), 0, greetingsPacket.getLength(), StandardCharsets.UTF_8);
+        if (greetings.isEmpty())
+            LOGGER.log(Level.SEVERE, "Could not connect to server");
+        System.out.println(greetings);
+
+        ClientOptions options = ClientOptions.NONE;
+        while (options != ClientOptions.EXIT) {
+            options = selectOption();
+            switch (options) {
+                case GET_LIST_OF_FILES:
+                    // receive from server files from others clients
+                    break;
+                case GET_FILE:
+                    // connect via server to client with desired file
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     private String getMessage() {
@@ -27,41 +63,24 @@ public class UDPClient {
         return input.next();
     }
 
-    public void runClient(boolean once) throws IOException {
-        LOGGER.info("Server address: " + serverAddress);
-        do {
-            System.out.print("Path to file: ");
-            var path = getMessage();
-            FileInputStream fis = new FileInputStream(path);
-
-            byte[] byteName = path.getBytes();
-            socket.send(new DatagramPacket(byteName, byteName.length, serverAddress, Config.PORT));
-            wait_ms();
-
-            int count;
-            byte[] byteArray = new byte[Config.BUFFER_SIZE];
-            while((count = fis.read(byteArray)) != -1){
-                byte[] lengthBytes = ByteBuffer.allocate(4).putInt(count).array();
-                socket.send(new DatagramPacket(lengthBytes, 4, serverAddress, Config.PORT));
-                wait_ms();
-
-                socket.send(new DatagramPacket(byteArray, count, serverAddress, Config.PORT));
-                wait_ms();
-            }
-            fis.close();
-
-            byte[] lengthBytes = {0};
-            socket.send(new DatagramPacket(lengthBytes, 1, serverAddress, Config.PORT));
-
-        } while (!once);
-
-    }
-
-    private void wait_ms(){
+    private void wait_ms() {
         try {
             TimeUnit.MILLISECONDS.sleep(1);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    private ClientOptions selectOption() {
+        printOptions();
+        int choice = Integer.valueOf(getMessage());
+        return ClientOptions.fromId(choice);
+    }
+
+    private void printOptions() {
+        System.out.println("\n\tOPTIONS");
+        System.out.println("\t1. Get list of available files");
+        System.out.println("\t2. Get file");
+        System.out.println("\t3. Exit\n");
     }
 }

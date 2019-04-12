@@ -10,9 +10,8 @@ public class Main {
 
     public static void main(String[] args) {
 
-        UDPServer udpServer;
+        UDPServer udpServer = UDPServer.getInstance();
         try {
-            udpServer = UDPServer.getUdpServer();
             udpServer.runServer();
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, e.getMessage());
