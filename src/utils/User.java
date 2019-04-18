@@ -45,4 +45,8 @@ public class User {
     public boolean same(User user) {
         return this.address == user.address && this.login.equals(user.login);
     }
+
+    public InetAddress getAddress() {
+        return address;
+    }
 }

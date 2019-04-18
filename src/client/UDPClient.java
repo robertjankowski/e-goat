@@ -29,15 +29,17 @@ public class UDPClient {
         } catch (UnknownHostException | SocketException e) {
             LOGGER.log(Level.SEVERE, e.getMessage());
         }
-        executor = Executors.newFixedThreadPool(2);
+        executor = Executors.newFixedThreadPool(1);
     }
 
     public void runClient() throws IOException {
         logging();
-        executor.submit(this::listen);
-        executor.submit(this::requests);
         while (true) {
-            Config.wait_ms(100);
+            executor.submit(this::listen);
+            var req = requests();
+            if (req == ClientOptions.NONE || req == ClientOptions.EXIT) {
+                System.exit(0);
+            }
         }
     }
 
@@ -66,19 +68,23 @@ public class UDPClient {
         var choiceMessage = Config.datagramToString(choicePacket);
         switch (ClientOptions.valueOf(choiceMessage)) {
             case GET_LIST_OF_FILES:
-                sendListOfFiles(); // TODO: not working, should send data to server
+                sendListOfFiles();
                 break;
             case GET_FILE:
                 System.out.println("GET_FILE");
                 // connect via server to client with desired file
                 break;
+            case EXIT:
+                LOGGER.log(Level.INFO, "Finished program");
+                System.exit(0);
             default:
                 // send error code
                 break;
         }
     }
 
-    private void requests() {
+
+    private ClientOptions requests() {
         ClientOptions options = ClientOptions.NONE;
         while (options != ClientOptions.EXIT) {
             options = selectOption();
@@ -90,6 +96,7 @@ public class UDPClient {
             }
             // receive appropriate results from other clients
         }
+        return options;
     }
 
     private void sendListOfFiles() {
@@ -116,11 +123,15 @@ public class UDPClient {
         return input.next();
     }
 
-
     private ClientOptions selectOption() {
         printOptions();
-        int choice = Integer.valueOf(getMessage());
-        return ClientOptions.fromId(choice);
+        try {
+            int choice = Integer.valueOf(getMessage());
+            return ClientOptions.fromId(choice);
+        } catch (NumberFormatException ex) {
+            LOGGER.log(Level.SEVERE, "Wrong option", ex.getMessage());
+        }
+        return ClientOptions.NONE;
     }
 
     private void printOptions() {
