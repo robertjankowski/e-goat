@@ -25,7 +25,7 @@ public class User {
     public String toString() {
         String user = login + "\t" + address.toString();
         String filesString = String.join("\n", files);
-        return user + filesString;
+        return user + "\n" + filesString;
     }
 
     public static List<String> getFiles() {
@@ -48,5 +48,9 @@ public class User {
 
     public InetAddress getAddress() {
         return address;
+    }
+
+    public void setFiles(List<String> files) {
+        this.files = files;
     }
 }

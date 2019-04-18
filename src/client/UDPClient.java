@@ -18,14 +18,16 @@ public class UDPClient {
     private InetAddress serverAddress;
     private DatagramSocket socketSend;
     private DatagramSocket socketListen;
+    private DatagramSocket socketRequsts;
 
-    private ExecutorService executor; // listen on CLIENT_PORT_LISTEN
+    private ExecutorService executor;
 
     public UDPClient() {
         try {
             serverAddress = InetAddress.getByName("localhost");
             socketSend = new DatagramSocket();
             socketListen = new DatagramSocket(Config.CLIENT_PORT_LISTEN);
+            socketRequsts = new DatagramSocket(Config.CLIENT_PORT_SEND);
         } catch (UnknownHostException | SocketException e) {
             LOGGER.log(Level.SEVERE, e.getMessage());
         }
@@ -83,7 +85,6 @@ public class UDPClient {
         }
     }
 
-
     private ClientOptions requests() {
         ClientOptions options = ClientOptions.NONE;
         while (options != ClientOptions.EXIT) {
@@ -91,10 +92,15 @@ public class UDPClient {
             var optionsBytes = options.toString().getBytes();
             try {
                 socketSend.send(new DatagramPacket(optionsBytes, optionsBytes.length, serverAddress, Config.SERVER_PORT));
+
+                var receivePacket = Config.getDatagramPacket();
+                socketRequsts.receive(receivePacket);
+                var mess = Config.datagramToString(receivePacket);
+                System.out.println(mess);
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            // receive appropriate results from other clients
         }
         return options;
     }

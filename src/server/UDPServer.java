@@ -13,8 +13,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class UDPServer {
 
@@ -81,12 +83,23 @@ public class UDPServer {
             datagramSocket.receive(optionPacket);
             var choice = Config.datagramToString(optionPacket);
             var userAddr = optionPacket.getAddress();
-            // TODO: filter user by address
+            var user = users
+                    .stream()
+                    .filter(u -> u.getAddress() == userAddr)
+                    .findFirst()
+                    .get();
+            var excludedUsers = users
+                    .stream()
+                    .filter(Predicate.not(u -> u.same(user)))
+                    .collect(Collectors.toList());
+
             switch (ClientOptions.valueOf(choice)) {
                 case GET_LIST_OF_FILES:
                     System.out.println("GET_LIST_OF_FILES");
-                    sendListOfFiles(users.get(0));
-                    // receive from server files from others clients
+                    for (var u : excludedUsers)
+                        setListOfFiles(u);
+                    users.forEach(System.out::println);
+                    sendListOfFiles(user);
                     break;
                 case GET_FILE:
                     System.out.println("GET_FILE");
@@ -102,20 +115,7 @@ public class UDPServer {
         }
     }
 
-//    private List<User> getListOfFiles() {
-//        // ask for files each clients
-//
-//
-//    }
-
-//    private List<String> askForFiles(User excludedUser) {
-//        // get all user except this
-//        users
-//                .stream()
-//                .filter(Predicate.not(user -> user.same(excludedUser)));
-//    }
-
-    private void sendListOfFiles(User user) throws IOException {
+    private void setListOfFiles(User user) throws IOException {
         var address = user.getAddress();
         var message = ClientOptions.GET_LIST_OF_FILES.toString().getBytes();
         socketClient.send(new DatagramPacket(message, message.length, address,
@@ -124,10 +124,27 @@ public class UDPServer {
         var nFilesPacket = Config.getDatagramPacket();
         datagramSocket.receive(nFilesPacket);
         var nFiles = Integer.valueOf(Config.datagramToString(nFilesPacket));
+        List<String> files = new ArrayList<>();
         for (int i = 0; i < nFiles; i++) {
-            // add files to user files list
+            var filePacket = Config.getDatagramPacket();
+            datagramSocket.receive(filePacket);
+            files.add(Config.datagramToString(filePacket));
         }
-        System.out.println(nFiles);
+        users
+                .stream()
+                .filter(u -> u.same(user))
+                .forEach(u -> u.setFiles(files));
+    }
+
+    private void sendListOfFiles(User user) {
+        var address = user.getAddress();
+        var message = users.toString().getBytes();
+        try {
+            socketClient.send(new DatagramPacket(message, message.length, address,
+                    Config.CLIENT_PORT_LISTEN));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
