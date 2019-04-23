@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 public class User {
 
+    private static final String SHARED_FOLDER = "src/client/shared";
     private String login;
     private InetAddress address;
     private List<String> files;
@@ -30,7 +31,7 @@ public class User {
 
     public static List<String> getFiles() {
         List<String> files = null;
-        var path = FileSystems.getDefault().getPath(Config.SHARED_FOLDER).toAbsolutePath();
+        var path = FileSystems.getDefault().getPath(SHARED_FOLDER).toAbsolutePath();
         try (var dir = Files.list(path)) {
             files = dir
                     .filter(Files::isRegularFile)

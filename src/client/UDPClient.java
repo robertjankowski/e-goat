@@ -1,14 +1,16 @@
 package client;
 
 import utils.ClientOptions;
-import utils.Config;
-import utils.User;
+import utils.DatagramPacketBuilder;
+import utils.Message;
+import utils.PORT;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -17,112 +19,47 @@ public class UDPClient {
     private static Logger LOGGER = Logger.getLogger(UDPClient.class.getName());
     private InetAddress serverAddress;
     private DatagramSocket socketSend;
+    private DatagramSocket socketInitListen;
     private DatagramSocket socketListen;
-    private DatagramSocket socketRequsts;
-
-    private ExecutorService executor;
 
     public UDPClient() {
         try {
             serverAddress = InetAddress.getByName("localhost");
             socketSend = new DatagramSocket();
-            socketListen = new DatagramSocket(Config.CLIENT_PORT_LISTEN);
-            socketRequsts = new DatagramSocket(Config.CLIENT_PORT_SEND);
+            socketInitListen = new DatagramSocket(PORT.INIT_CLIENT);
         } catch (UnknownHostException | SocketException e) {
             LOGGER.log(Level.SEVERE, e.getMessage());
         }
-        executor = Executors.newFixedThreadPool(1);
     }
 
     public void runClient() throws IOException {
-        logging();
+        int port = askForPort();
+        if (port < 0)
+            LOGGER.log(Level.WARNING, "Could not connect to server");
+        socketListen = new DatagramSocket(port);
+        LOGGER.info("Client listening on port: " + port);
         while (true) {
-            executor.submit(this::listen);
-            var req = requests();
-            if (req == ClientOptions.NONE || req == ClientOptions.EXIT) {
-                System.exit(0);
-            }
+            // logging
         }
     }
 
-    private void logging() throws IOException {
-        LOGGER.info("Server address: " + serverAddress);
-        System.out.print("Login: ");
-        var login = getMessage();
-        var loginBytes = login.getBytes();
-        socketSend.send(new DatagramPacket(loginBytes, loginBytes.length, serverAddress, Config.LOGIN_PORT));
-
-        var greetingsPacket = Config.getDatagramPacket();
-        socketListen.receive(greetingsPacket);
-        var greetings = Config.datagramToString(greetingsPacket);
-        if (greetings.isEmpty())
-            LOGGER.log(Level.SEVERE, "Could not connect to server");
-        System.out.println(greetings);
-    }
-
-    private void listen() {
-        var choicePacket = Config.getDatagramPacket();
+    private int askForPort() {
         try {
-            socketListen.receive(choicePacket);
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage());
+            socketSend.send(DatagramPacketBuilder.build(Message.INIT_PORT, serverAddress, PORT.SERVER));
+        } catch (IOException ex) {
+            LOGGER.severe("Unable to send initial message to server\t" + ex.getMessage());
         }
-        var choiceMessage = Config.datagramToString(choicePacket);
-        switch (ClientOptions.valueOf(choiceMessage)) {
-            case GET_LIST_OF_FILES:
-                sendListOfFiles();
-                break;
-            case GET_FILE:
-                System.out.println("GET_FILE");
-                // connect via server to client with desired file
-                break;
-            case EXIT:
-                LOGGER.log(Level.INFO, "Finished program");
-                System.exit(0);
-            default:
-                // send error code
-                break;
-        }
-    }
-
-    private ClientOptions requests() {
-        ClientOptions options = ClientOptions.NONE;
-        while (options != ClientOptions.EXIT) {
-            options = selectOption();
-            var optionsBytes = options.toString().getBytes();
-            try {
-                socketSend.send(new DatagramPacket(optionsBytes, optionsBytes.length, serverAddress, Config.SERVER_PORT));
-
-                var receivePacket = Config.getDatagramPacket();
-                socketRequsts.receive(receivePacket);
-                var mess = Config.datagramToString(receivePacket);
-                System.out.println(mess);
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return options;
-    }
-
-    private void sendListOfFiles() {
-        var files = User.getFiles();
-        var filesNumber = String.valueOf(files.size()).getBytes();
         try {
-            socketSend.send(new DatagramPacket(filesNumber, filesNumber.length, serverAddress, Config.SERVER_PORT));
-        } catch (IOException e) {
-            e.printStackTrace();
+            var initialPacket = DatagramPacketBuilder.create();
+            socketInitListen.receive(initialPacket);
+            int port = DatagramPacketBuilder.toInt(initialPacket);
+            return port > 0 ? port : -1;
+        } catch (IOException ex) {
+            LOGGER.severe("Unable to receive initial message to server\t" + ex.getMessage());
         }
-        Config.wait_ms(10);
-        for (var file : files) {
-            var fileBytes = file.getBytes();
-            try {
-                socketSend.send(new DatagramPacket(fileBytes, fileBytes.length, serverAddress, Config.SERVER_PORT));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        return -1;
     }
+
 
     private String getMessage() {
         var input = new Scanner(System.in);
