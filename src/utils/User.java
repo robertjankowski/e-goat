@@ -14,17 +14,24 @@ public class User {
     private static final String SHARED_FOLDER = "src/client/shared";
     private String login;
     private InetAddress address;
+    private int port;
     private List<String> files;
 
-    public User(String login, InetAddress address) {
+    public User(String login, InetAddress address, int port) {
         this.login = login;
         this.address = address;
+        this.port = port;
         files = new ArrayList<>();
     }
 
     @Override
     public String toString() {
-        String user = login + "\t" + address.toString();
+        return "LOGIN: " + login + " | ADDRESS: " +
+                address.toString() + " | PORT: " + port;
+    }
+
+    public String showListOfFiles() {
+        String user = login + "\t" + address.toString() + "\t" + port;
         String filesString = String.join("\n", files);
         return user + "\n" + filesString;
     }
@@ -41,6 +48,10 @@ public class User {
             e.printStackTrace();
         }
         return files;
+    }
+
+    public String getLogin() {
+        return login;
     }
 
     public boolean same(User user) {
