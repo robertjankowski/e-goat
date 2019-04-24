@@ -17,5 +17,8 @@ P2P file transfer using UDP protocol
         - clients start transfering files
     - `EXIT` 
         - terminate program 
-    
-![e-goat.png](e-goat.png)
+  
+<p align="center">
+  <img title="Server diagram" src="images/e-goat-server.png" width="35%"/>
+  <img title="Client diagram" src="images/e-goat-client.png" width="45%"/>
+</p>
