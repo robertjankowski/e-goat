@@ -1,3 +1,5 @@
+[![CodeFactor](https://www.codefactor.io/repository/github/robertjankowski/e-goat/badge)](https://www.codefactor.io/repository/github/robertjankowski/e-goat)
+
 # e-goat
 P2P file transfer using UDP protocol
 
