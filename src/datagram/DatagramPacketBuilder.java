@@ -1,4 +1,4 @@
-package utils;
+package datagram;
 
 import java.net.DatagramPacket;
 import java.net.InetAddress;

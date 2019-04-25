@@ -1,12 +1,10 @@
 package server;
 
-import utils.DatagramPacketBuilder;
+import datagram.DatagramPacketBuilder;
+import datagram.UDPSocket;
+import events.User;
 import utils.PORT;
-import utils.User;
 
-import java.io.IOException;
-import java.net.DatagramSocket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -20,9 +18,9 @@ public class UDPServer {
 
     private static UDPServer udpServer = null;
 
-    private DatagramSocket socketSend;
-    private DatagramSocket socketLogin;
-    private DatagramSocket socketListen;
+    private UDPSocket socketSend;
+    private UDPSocket socketLogin;
+    private UDPSocket socketListen;
 
     private List<User> users;
     private ExecutorService executor;
@@ -35,13 +33,9 @@ public class UDPServer {
     }
 
     private UDPServer() {
-        try {
-            socketSend = new DatagramSocket();
-            socketLogin = new DatagramSocket(PORT.SERVER_LOGIN);
-            socketListen = new DatagramSocket(PORT.SERVER_LISTEN);
-        } catch (SocketException ex) {
-            LOGGER.severe("Unable to open sockets\t" + ex.getMessage());
-        }
+        socketSend = new UDPSocket();
+        socketLogin = new UDPSocket(PORT.SERVER_LOGIN);
+        socketListen = new UDPSocket(PORT.SERVER_LISTEN);
         users = new ArrayList<>();
         executor = Executors.newFixedThreadPool(1);
     }
@@ -58,14 +52,8 @@ public class UDPServer {
         }
     }
 
-
     private void logToServer() {
-        var loginPacket = DatagramPacketBuilder.create();
-        try {
-            socketLogin.receive(loginPacket);
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to receive login from client\t" + ex.getMessage());
-        }
+        var loginPacket = socketLogin.receive("Unable to receive login from client");
         String login = DatagramPacketBuilder.toString(loginPacket);
         String welcomeMessage;
         int port = getClientListenPort(socketLogin);
@@ -78,24 +66,15 @@ public class UDPServer {
         } else {
             welcomeMessage = "";
         }
-        try {
-            socketSend.send(DatagramPacketBuilder.build(welcomeMessage, address, port));
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to send login message to client\t" + ex.getMessage());
-        }
+        socketSend.send(welcomeMessage, address, port, "Unable to send login message to client");
     }
 
     private void listenForRequests() {
         int port = getClientListenPort(socketListen);
     }
 
-    private int getClientListenPort(DatagramSocket socket) {
-        var packet = DatagramPacketBuilder.create();
-        try {
-            socket.receive(packet);
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to receive message from client\t" + ex.getMessage());
-        }
+    private int getClientListenPort(UDPSocket socket) {
+        var packet = socket.receive("Unable to receive message from client");
         return DatagramPacketBuilder.toInt(packet);
     }
 

@@ -1,13 +1,11 @@
 package client;
 
+import datagram.DatagramPacketBuilder;
+import datagram.UDPSocket;
 import utils.ClientOptions;
-import utils.DatagramPacketBuilder;
 import utils.PORT;
 
-import java.io.IOException;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Random;
 import java.util.Scanner;
@@ -18,18 +16,18 @@ public class UDPClient {
 
     private static Logger LOGGER = Logger.getLogger(UDPClient.class.getName());
     private InetAddress serverAddress;
-    private DatagramSocket socketSend;
-    private DatagramSocket socketListen;
+    private UDPSocket socketSend;
+    private UDPSocket socketListen;
     private int listenPort;
 
     public UDPClient() {
         listenPort = randomlyPickPort(PORT.LOW_CLIENT_PORT, PORT.HIGH_CLIENT_PORT);
+        socketSend = new UDPSocket();
+        socketListen = new UDPSocket(listenPort);
         try {
             serverAddress = InetAddress.getByName("localhost");
-            socketSend = new DatagramSocket();
-            socketListen = new DatagramSocket(listenPort);
-        } catch (UnknownHostException | SocketException e) {
-            LOGGER.log(Level.SEVERE, e.getMessage());
+        } catch (UnknownHostException ex) {
+            LOGGER.severe("Unable to establish server address");
         }
     }
 
@@ -50,26 +48,16 @@ public class UDPClient {
     private boolean logToServer() {
         System.out.print("Login: ");
         String login = getMessage();
-        try {
-            socketSend.send(DatagramPacketBuilder.build(login, serverAddress, PORT.SERVER_LOGIN));
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to send initial message to server\t" + ex.getMessage());
-        }
+        socketSend.send(login, serverAddress, PORT.SERVER_LOGIN, "Unable to send initial message to server");
         sendListenPort(PORT.SERVER_LOGIN);
-        try {
-            var loginPacket = DatagramPacketBuilder.create();
-            socketListen.receive(loginPacket);
-            String loginMessage = DatagramPacketBuilder.toString(loginPacket);
-            if (loginMessage.isEmpty()) {
-                return false;
-            } else {
-                System.out.println(loginMessage);
-                return true;
-            }
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to receive login message from server\t" + ex.getMessage());
+        var loginPacket = socketListen.receive("Unable to receive login message from server");
+        String loginMessage = DatagramPacketBuilder.toString(loginPacket);
+        if (loginMessage.isEmpty()) {
+            return false;
+        } else {
+            System.out.println(loginMessage);
+            return true;
         }
-        return false;
     }
 
     private ClientOptions requests() {
@@ -83,11 +71,8 @@ public class UDPClient {
     }
 
     private void sendListenPort(int serverPort) {
-        try {
-            socketSend.send(DatagramPacketBuilder.build(String.valueOf(listenPort), serverAddress, serverPort));
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to send initial message to server\t" + ex.getMessage());
-        }
+        String errorMessage = "Unable to send listen port to server";
+        socketSend.send(String.valueOf(listenPort), serverAddress, serverPort, errorMessage);
     }
 
     private int randomlyPickPort(int low, int high) {
