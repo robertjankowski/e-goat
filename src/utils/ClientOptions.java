@@ -2,8 +2,8 @@ package utils;
 
 public enum ClientOptions {
     NONE(0),
-    GET_LIST_OF_FILES(1),
-    GET_FILE(2),
+    FILE_LIST(1),
+    DOWNLOAD(2),
     EXIT(3);
 
     private int id;

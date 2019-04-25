@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketAddress;
 import java.util.logging.Logger;
 
 public class UDPSocket {
@@ -27,12 +28,32 @@ public class UDPSocket {
         }
     }
 
-    public DatagramPacket receive(String errorMessage) {
+    public UDPSocket(SocketAddress address) {
+        try {
+            socket = new DatagramSocket(address);
+        } catch (IOException ex) {
+            LOGGER.severe("Unable to initialize socket");
+        }
+
+    }
+
+    public DatagramPacket receive(int timeout) {
+        var packet = DatagramPacketBuilder.create();
+        try {
+            socket.receive(packet);
+            socket.setSoTimeout(timeout);
+        } catch (IOException ex) {
+            LOGGER.severe("Unable to receive message" + "\n" + ex.getMessage());
+        }
+        return packet;
+    }
+
+    public DatagramPacket receive() {
         var packet = DatagramPacketBuilder.create();
         try {
             socket.receive(packet);
         } catch (IOException ex) {
-            LOGGER.severe(errorMessage + "\n" + ex.getMessage());
+            LOGGER.severe("Unable to receive message\n" + ex.getMessage());
         }
         return packet;
     }
@@ -43,6 +64,18 @@ public class UDPSocket {
         } catch (IOException ex) {
             LOGGER.severe(errorMessage + "\n" + ex.getMessage());
         }
+    }
+
+    public void send(String message, InetAddress address, int port) {
+        try {
+            socket.send(DatagramPacketBuilder.build(message, address, port));
+        } catch (IOException ex) {
+            LOGGER.severe("Unable to send message\n" + ex.getMessage());
+        }
+    }
+
+    public void close() {
+        socket.close();
     }
 
 }

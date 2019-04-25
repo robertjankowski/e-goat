@@ -2,28 +2,29 @@ package client;
 
 import datagram.DatagramPacketBuilder;
 import datagram.UDPSocket;
+import message.Message;
 import utils.ClientOptions;
 import utils.PORT;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Random;
 import java.util.Scanner;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class UDPClient {
 
     private static Logger LOGGER = Logger.getLogger(UDPClient.class.getName());
+
     private InetAddress serverAddress;
     private UDPSocket socketSend;
-    private UDPSocket socketListen;
-    private int listenPort;
+    private UDPSocket socketListenPort1;
+    private UDPSocket socketListenPort2;
+
+    private int randomPort1;
+    private int randomPort2;
 
     public UDPClient() {
-        listenPort = randomlyPickPort(PORT.LOW_CLIENT_PORT, PORT.HIGH_CLIENT_PORT);
         socketSend = new UDPSocket();
-        socketListen = new UDPSocket(listenPort);
         try {
             serverAddress = InetAddress.getByName("localhost");
         } catch (UnknownHostException ex) {
@@ -32,52 +33,35 @@ public class UDPClient {
     }
 
     public void runClient() {
-        if (!logToServer()) {
-            LOGGER.info("Unable to login to server\nThe current login name is already in use");
-            System.exit(0);
-        }
+        login();
         while (true) {
-            // second thread for listening
-            var req = requests();
-            if (req == ClientOptions.EXIT) {
+            // second thread for listening on randomPort2
+            if (selectOption() == ClientOptions.EXIT)
                 break;
-            }
         }
     }
 
-    private boolean logToServer() {
+    private void login() {
+        socketSend.send(Message.LOGIN, serverAddress, PORT.SERVER_PRODUCER);
+        receiveRandomPorts();
         System.out.print("Login: ");
-        String login = getMessage();
-        socketSend.send(login, serverAddress, PORT.SERVER_LOGIN, "Unable to send initial message to server");
-        sendListenPort(PORT.SERVER_LOGIN);
-        var loginPacket = socketListen.receive("Unable to receive login message from server");
-        String loginMessage = DatagramPacketBuilder.toString(loginPacket);
-        if (loginMessage.isEmpty()) {
-            return false;
-        } else {
-            System.out.println(loginMessage);
-            return true;
-        }
+        var login = getMessage();
+        socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
+        System.out.println(receiveWelcomeMessage());
     }
 
-    private ClientOptions requests() {
-        ClientOptions option = ClientOptions.NONE;
-        while (option != ClientOptions.EXIT) {
-            option = selectOption();
-            // send port + option to server
-            sendListenPort(PORT.SERVER_LISTEN);
-        }
-        return option;
+    private void receiveRandomPorts() {
+        var socket = new UDPSocket(PORT.INIT_CLIENT);
+        randomPort1 = DatagramPacketBuilder.toInt(socket.receive());
+        randomPort2 = DatagramPacketBuilder.toInt(socket.receive());
+        socket.close();
+        socketListenPort1 = new UDPSocket(randomPort1);
+        socketListenPort2 = new UDPSocket(randomPort2);
     }
 
-    private void sendListenPort(int serverPort) {
-        String errorMessage = "Unable to send listen port to server";
-        socketSend.send(String.valueOf(listenPort), serverAddress, serverPort, errorMessage);
-    }
-
-    private int randomlyPickPort(int low, int high) {
-        var rand = new Random();
-        return low + rand.nextInt(high - low + 1);
+    private String receiveWelcomeMessage() {
+        var message = socketListenPort1.receive();
+        return DatagramPacketBuilder.toString(message);
     }
 
     private String getMessage() {
@@ -91,7 +75,7 @@ public class UDPClient {
             int choice = Integer.valueOf(getMessage());
             return ClientOptions.fromId(choice);
         } catch (NumberFormatException ex) {
-            LOGGER.log(Level.SEVERE, "Wrong option", ex.getMessage());
+            LOGGER.severe("Wrong option" + ex.getMessage());
         }
         return ClientOptions.NONE;
     }
