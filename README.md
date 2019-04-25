@@ -1,6 +1,10 @@
 # e-goat
 P2P file transfer using UDP protocol
 
+### Authors
+Robert Jankowski [@robertjankowski](https://github.com/robertjankowski)
+
+Łukasz Bożek     [@xxlukasz11](https://github.com/xxlukasz11)
 
 ## Architecture of the program
 
