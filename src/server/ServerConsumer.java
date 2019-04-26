@@ -1,7 +1,6 @@
 package server;
 
 import datagram.DatagramPacketBuilder;
-import datagram.UDPSocket;
 import message.Message;
 import user.User;
 import utils.PORT;
@@ -9,15 +8,17 @@ import utils.PORT;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.function.Predicate;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class ServerConsumer extends Server {
 
-    private UDPSocket socket;
+    private static final Logger LOGGER = Logger.getLogger(ServerConsumer.class.getName());
     private List<User> users;
 
-    public ServerConsumer(ArrayBlockingQueue<Message> eventsQueue) {
-        super(eventsQueue);
-        socket = new UDPSocket(PORT.SERVER_CONSUMER);
+    public ServerConsumer(ArrayBlockingQueue<Message> eventsQueue, int port) {
+        super(eventsQueue, port);
         users = new ArrayList<>();
     }
 
@@ -26,11 +27,11 @@ public class ServerConsumer extends Server {
             var event = eventsQueue.take();
             handleEvent(event);
         } catch (InterruptedException ex) {
-            ex.printStackTrace();
+            LOGGER.severe("Error in processing events" + ex.getMessage());
         }
     }
 
-    public void handleEvent(Message message) {
+    private void handleEvent(Message message) {
         System.out.println(message.getMessage());
         switch (message.getMessage()) {
             case Message.LOGIN:
@@ -40,6 +41,12 @@ public class ServerConsumer extends Server {
                 handleFileList();
                 break;
             case Message.DOWNLOAD:
+                break;
+            case Message.EXIT:
+                removeUserFromList();
+                break;
+            default:
+                LOGGER.severe("Undefined message type");
                 break;
         }
     }
@@ -68,12 +75,45 @@ public class ServerConsumer extends Server {
     }
 
     private void handleFileList() {
+        var loginPacket = socket.receive();
+        var loginName = DatagramPacketBuilder.toString(loginPacket);
+        var user = users.stream()
+                .filter(u -> u.getLogin().equals(loginName))
+                .findFirst().orElseThrow();
+        var excludedUsers = getExcludedUsers(user);
+        excludedUsers.forEach(u -> u.setListOfFiles(getFilesFromUser(u)));
+        var allFiles = buildListOfFiles(excludedUsers);
+        socket.send(allFiles, user.getAddress(), Integer.valueOf(user.getRandomPort1()));
+    }
+
+    private List<User> getExcludedUsers(User user) {
+        return users.stream()
+                .filter(Predicate.not(u -> u.sameUser(user)))
+                .collect(Collectors.toList());
+    }
+
+    private List<String> getFilesFromUser(User user) {
+        socket.send(Message.FILE_LIST, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+        var filesPacket = socket.receive();
+        var files = DatagramPacketBuilder.toString(filesPacket);
+        return User.listOfFileToList(files);
+    }
+
+    private String buildListOfFiles(List<User> excludedUsers) {
+        return excludedUsers.stream()
+                .map(User::showListOfFiles)
+                .collect(Collectors.joining("\n"));
+    }
+
+    private void removeUserFromList() {
+        var toRemovedUserPacket = socket.receive();
+        var toRemovedUser = DatagramPacketBuilder.toString(toRemovedUserPacket);
+        users.removeIf(u -> u.getLogin().equals(toRemovedUser));
+        users.forEach(System.out::println);
     }
 
     private String buildWelcomeMessage(User user) {
         String message = "\n\tWelcome on e-goat server\n";
         return message + "\t" + user.toString();
     }
-
-
 }

@@ -7,6 +7,7 @@ public class Message {
     public static final String LOGIN = "LOGIN";
     public static final String FILE_LIST = "FILE_LIST";
     public static final String DOWNLOAD = "DOWNLOAD";
+    public static final String EXIT = "EXIT";
 
     private String message;
     private User user;

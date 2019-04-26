@@ -1,6 +1,7 @@
 package server;
 
 import message.Message;
+import utils.PORT;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -14,8 +15,8 @@ public class MainServer {
 
     public MainServer() {
         var eventsQueue = new ArrayBlockingQueue<Message>(Server.MAX_CAPACITY);
-        serverProducer = new ServerProducer(eventsQueue);
-        serverConsumer = new ServerConsumer(eventsQueue);
+        serverProducer = new ServerProducer(eventsQueue, PORT.SERVER_PRODUCER);
+        serverConsumer = new ServerConsumer(eventsQueue, PORT.SERVER_CONSUMER);
         executor = Executors.newSingleThreadExecutor();
     }
 

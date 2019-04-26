@@ -6,7 +6,9 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class User {
@@ -37,9 +39,8 @@ public class User {
     }
 
     public String showListOfFiles() {
-        String user = login + "\t" + address.toString() + "\t" + randomPort1;
-        String filesString = String.join("\n", files);
-        return user + "\n" + filesString;
+        String filesString = String.join(" \n", files);
+        return "\tLOGIN: " + login + "\n\tFILES:\n" + filesString;
     }
 
     public static List<String> getFiles() {
@@ -54,6 +55,18 @@ public class User {
             e.printStackTrace();
         }
         return files;
+    }
+
+    public static String listOfFilesToString(List<String> files) {
+        return String.join(",", files);
+    }
+
+    public static List<String> listOfFileToList(String files) {
+        return Arrays.asList(files.split(","));
+    }
+
+    public boolean sameUser(User user) {
+        return Objects.equals(this.randomPort1, user.randomPort1) && Objects.equals(this.randomPort2, user.randomPort2);
     }
 
     public InetAddress getAddress() {
@@ -78,5 +91,13 @@ public class User {
 
     public String getRandomPort2() {
         return randomPort2;
+    }
+
+    public void setListOfFiles(List<String> files) {
+        this.files = files;
+    }
+
+    public String getLogin() {
+        return login;
     }
 }
