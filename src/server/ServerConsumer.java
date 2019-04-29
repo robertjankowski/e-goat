@@ -41,6 +41,7 @@ public class ServerConsumer extends Server {
                 handleFileList();
                 break;
             case Message.DOWNLOAD:
+                handleDownloadFile();
                 break;
             case Message.EXIT:
                 removeUserFromList();
@@ -55,8 +56,55 @@ public class ServerConsumer extends Server {
         sendRandomPorts(user);
         var loginPacket = socket.receive();
         user.setLogin(DatagramPacketBuilder.toString(loginPacket));
-        sendWelcomeMessage(user);
-        users.add(user);
+        var isUserExists = users.stream()
+                .anyMatch(u -> u.getLogin().equals(user.getLogin()));
+        if (!isUserExists) {
+            sendWelcomeMessage(user);
+            users.add(user);
+        } else {
+            sendUserExistsMessage(user);
+        }
+    }
+
+    private void handleFileList() {
+        var loginPacket = socket.receive();
+        var loginName = DatagramPacketBuilder.toString(loginPacket);
+        var user = getUserWithLoginName(loginName);
+        var excludedUsers = getExcludedUsers(user);
+        excludedUsers.forEach(u -> u.setListOfFiles(getFilesFromUser(u)));
+        var allFiles = buildListOfFiles(excludedUsers);
+        socket.send(allFiles, user.getAddress(), Integer.valueOf(user.getRandomPort1()));
+    }
+
+
+    private void handleDownloadFile() {
+        var loginFileNamePacket = socket.receive();
+        var loginFileName = DatagramPacketBuilder.toString(loginFileNamePacket).split(",");
+        String login = loginFileName[0];
+        String fileName = loginFileName[1];
+        var user = getUserWithLoginName(login);
+        user.setListOfFiles(getFilesFromUser(user));
+        var desireFile = user.getListOfFiles().stream()
+                .filter(file -> file.equals(fileName))
+                .findFirst()
+                .orElse("");
+        socket.send(Message.DOWNLOAD, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+        // How to send file to client on port 2 ?
+        // socket.send(desireFile, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+    }
+
+    private User getUserWithLoginName(String login) {
+        return users.stream()
+                .filter(u -> u.getLogin().equals(login))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private void removeUserFromList() {
+        var toRemovedUserPacket = socket.receive();
+        var toRemovedUser = DatagramPacketBuilder.toString(toRemovedUserPacket);
+        users.removeIf(u -> u.getLogin().equals(toRemovedUser));
+        users.forEach(System.out::println);
     }
 
     private void sendRandomPorts(User user) {
@@ -71,19 +119,16 @@ public class ServerConsumer extends Server {
 
     private void sendWelcomeMessage(User user) {
         String message = buildWelcomeMessage(user);
-        socket.send(message, user.getAddress(), Integer.valueOf(user.getRandomPort1()));
+        sendMessageToUser(user, message);
     }
 
-    private void handleFileList() {
-        var loginPacket = socket.receive();
-        var loginName = DatagramPacketBuilder.toString(loginPacket);
-        var user = users.stream()
-                .filter(u -> u.getLogin().equals(loginName))
-                .findFirst().orElseThrow();
-        var excludedUsers = getExcludedUsers(user);
-        excludedUsers.forEach(u -> u.setListOfFiles(getFilesFromUser(u)));
-        var allFiles = buildListOfFiles(excludedUsers);
-        socket.send(allFiles, user.getAddress(), Integer.valueOf(user.getRandomPort1()));
+    private void sendUserExistsMessage(User user) {
+        String message = "User already exists, please try again.";
+        sendMessageToUser(user, message);
+    }
+
+    private void sendMessageToUser(User user, String message) {
+        socket.send(message, user.getAddress(), Integer.valueOf(user.getRandomPort1()));
     }
 
     private List<User> getExcludedUsers(User user) {
@@ -103,13 +148,6 @@ public class ServerConsumer extends Server {
         return excludedUsers.stream()
                 .map(User::showListOfFiles)
                 .collect(Collectors.joining("\n"));
-    }
-
-    private void removeUserFromList() {
-        var toRemovedUserPacket = socket.receive();
-        var toRemovedUser = DatagramPacketBuilder.toString(toRemovedUserPacket);
-        users.removeIf(u -> u.getLogin().equals(toRemovedUser));
-        users.forEach(System.out::println);
     }
 
     private String buildWelcomeMessage(User user) {

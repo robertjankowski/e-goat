@@ -28,7 +28,7 @@ public class Client {
 
     public Client() {
         try {
-            serverAddress = InetAddress.getByName("localhost");
+            serverAddress = InetAddress.getByName("192.168.0.25");
         } catch (UnknownHostException ex) {
             LOGGER.severe("Unable to establish server address");
         }
@@ -44,13 +44,14 @@ public class Client {
         }
     }
 
-    private void login() {
+    private boolean login() {
         socketSend.send(Message.LOGIN, serverAddress, PORT.SERVER_PRODUCER);
         receiveRandomPorts();
         System.out.print("Login: ");
         login = getMessage();
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
         System.out.println(receiveWelcomeMessage());
+        return true;
     }
 
     private void receiveRandomPorts() {
@@ -74,6 +75,7 @@ public class Client {
                 System.out.println(filesList());
                 break;
             case DOWNLOAD:
+                downloadFile();
                 break;
             case EXIT:
                 sendGoodBye();
@@ -95,6 +97,21 @@ public class Client {
         return DatagramPacketBuilder.toString(files);
     }
 
+    private void downloadFile() {
+        socketSend.send(Message.DOWNLOAD, serverAddress, PORT.SERVER_PRODUCER);
+        var loginFile = getFileAndUserLogin();
+        socketSend.send(loginFile, serverAddress, PORT.SERVER_CONSUMER);
+
+    }
+
+    private String getFileAndUserLogin() {
+        System.out.print("Choose login: ");
+        var userLogin = getMessage();
+        System.out.flush();
+        System.out.print("Choose name of file: ");
+        var fileName = getMessage();
+        return userLogin + "," + fileName;
+    }
 
     private void listen() {
         var messagePacket = socketListenPort2.receive();
@@ -104,6 +121,7 @@ public class Client {
                 returnFileList();
                 break;
             case Message.DOWNLOAD:
+                returnFile();
                 break;
             default:
                 break;
@@ -114,6 +132,10 @@ public class Client {
         List<String> files = User.getFiles();
         String joinedFiles = User.listOfFilesToString(files);
         socketSend.send(joinedFiles, serverAddress, PORT.SERVER_CONSUMER);
+    }
+
+    private void returnFile() {
+
     }
 
     private String getMessage() {
