@@ -78,31 +78,45 @@ public class ServerConsumer extends Server {
 
 
     private void handleDownloadFile() {
-        var loginFileNamePacket = socket.receive();
-        var loginFileName = DatagramPacketBuilder.toString(loginFileNamePacket).split(",");
+        var askUserLogin = DatagramPacketBuilder.receiveAndReturnString(socket);
+        var askUser = getUserWithLoginName(askUserLogin);
+
+        var loginFileName = receiveLoginAndFilename();
         String login = loginFileName[0];
         String fileName = loginFileName[1];
+
         var user = getUserWithLoginName(login);
-        user.setListOfFiles(getFilesFromUser(user));
-        var desireFile = user.getListOfFiles().stream()
-                .filter(file -> file.equals(fileName))
-                .findFirst()
-                .orElse("");
+        if (user.getLogin().isEmpty()) {
+            sendMessageToUser(askUser, "false");
+            return;
+        }
+        boolean doesUserExists = users.stream()
+                .anyMatch(u -> u.getLogin().equals(user.getLogin()));
+        if (!doesUserExists) {
+            sendMessageToUser(askUser, "false");
+            return;
+        }
+        sendMessageToUser(askUser, "true");
+
         socket.send(Message.DOWNLOAD, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
-        // How to send file to client on port 2 ?
-        // socket.send(desireFile, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+        socket.send(askUser.getRandomPort1(), user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+        socket.send(askUser.getAddress().getHostName(), user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+        socket.send(fileName, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+    }
+
+    private String[] receiveLoginAndFilename() {
+        return DatagramPacketBuilder.receiveAndReturnString(socket).split(",");
     }
 
     private User getUserWithLoginName(String login) {
         return users.stream()
                 .filter(u -> u.getLogin().equals(login))
                 .findFirst()
-                .orElseThrow();
+                .orElseGet(User::new);
     }
 
     private void removeUserFromList() {
-        var toRemovedUserPacket = socket.receive();
-        var toRemovedUser = DatagramPacketBuilder.toString(toRemovedUserPacket);
+        var toRemovedUser = DatagramPacketBuilder.receiveAndReturnString(socket);
         users.removeIf(u -> u.getLogin().equals(toRemovedUser));
         users.forEach(System.out::println);
     }
@@ -139,8 +153,7 @@ public class ServerConsumer extends Server {
 
     private List<String> getFilesFromUser(User user) {
         socket.send(Message.FILE_LIST, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
-        var filesPacket = socket.receive();
-        var files = DatagramPacketBuilder.toString(filesPacket);
+        var files = DatagramPacketBuilder.receiveAndReturnString(socket);
         return User.listOfFileToList(files);
     }
 

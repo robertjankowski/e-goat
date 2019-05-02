@@ -5,7 +5,6 @@ import java.net.InetAddress;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -24,12 +23,8 @@ public class User {
         this.address = address;
     }
 
-    public User(String login, InetAddress address, String randomPort1, String randomPort2) {
-        this.login = login;
-        this.address = address;
-        this.randomPort1 = randomPort1;
-        this.randomPort2 = randomPort2;
-        files = new ArrayList<>();
+    public User() {
+        this.login = "";
     }
 
     @Override
@@ -99,9 +94,5 @@ public class User {
 
     public String getLogin() {
         return login;
-    }
-
-    public List<String> getListOfFiles() {
-        return files;
     }
 }

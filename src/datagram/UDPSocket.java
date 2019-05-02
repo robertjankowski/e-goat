@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketAddress;
 import java.util.logging.Logger;
 
 public class UDPSocket {
@@ -28,15 +27,6 @@ public class UDPSocket {
         }
     }
 
-    public UDPSocket(SocketAddress address) {
-        try {
-            socket = new DatagramSocket(address);
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to initialize socket");
-        }
-
-    }
-
     public DatagramPacket receive(int timeout) {
         var packet = DatagramPacketBuilder.create();
         try {
@@ -49,13 +39,7 @@ public class UDPSocket {
     }
 
     public DatagramPacket receive() {
-        var packet = DatagramPacketBuilder.create();
-        try {
-            socket.receive(packet);
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to receive message\n" + ex.getMessage());
-        }
-        return packet;
+        return receive(0);
     }
 
     public void send(String message, InetAddress address, int port, String errorMessage) {
@@ -67,11 +51,7 @@ public class UDPSocket {
     }
 
     public void send(String message, InetAddress address, int port) {
-        try {
-            socket.send(DatagramPacketBuilder.build(message, address, port));
-        } catch (IOException ex) {
-            LOGGER.severe("Unable to send message\n" + ex.getMessage());
-        }
+        send(message, address, port, "Unable to send message\n");
     }
 
     public void close() {

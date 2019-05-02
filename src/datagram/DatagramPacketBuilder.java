@@ -36,4 +36,8 @@ public final class DatagramPacketBuilder {
         }
         return -1;
     }
+
+    public static String receiveAndReturnString(UDPSocket socket) {
+        return DatagramPacketBuilder.toString(socket.receive());
+    }
 }

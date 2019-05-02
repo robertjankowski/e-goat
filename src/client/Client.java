@@ -10,6 +10,7 @@ import utils.PORT;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -50,7 +51,8 @@ public class Client {
         System.out.print("Login: ");
         login = getMessage();
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
-        System.out.println(receiveWelcomeMessage());
+        var welcomeMessage = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        System.out.println(welcomeMessage);
         return true;
     }
 
@@ -61,11 +63,6 @@ public class Client {
         socket.close();
         socketListenPort1 = new UDPSocket(randomPort1);
         socketListenPort2 = new UDPSocket(randomPort2);
-    }
-
-    private String receiveWelcomeMessage() {
-        var message = socketListenPort1.receive();
-        return DatagramPacketBuilder.toString(message);
     }
 
     private void sendRequests() {
@@ -93,35 +90,56 @@ public class Client {
     private String filesList() {
         socketSend.send(Message.FILE_LIST, serverAddress, PORT.SERVER_PRODUCER);
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
-        var files = socketListenPort1.receive();
-        return DatagramPacketBuilder.toString(files);
+        return DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
     }
 
     private void downloadFile() {
         socketSend.send(Message.DOWNLOAD, serverAddress, PORT.SERVER_PRODUCER);
+        socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
+
         var loginFile = getFileAndUserLogin();
         socketSend.send(loginFile, serverAddress, PORT.SERVER_CONSUMER);
 
+        if (!validateRequests("User with this name does not exist!")) {
+            return;
+        }
+        if (!validateRequests("User does not have file with this name!")) {
+            return;
+        }
+
+        var file = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        System.out.println(file);
+    }
+
+    private boolean validateRequests(String errorMessage) {
+        var isValidate = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        if (!Boolean.valueOf(isValidate)) {
+            System.out.println(errorMessage);
+            return false;
+        }
+        return true;
     }
 
     private String getFileAndUserLogin() {
         System.out.print("Choose login: ");
         var userLogin = getMessage();
-        System.out.flush();
         System.out.print("Choose name of file: ");
         var fileName = getMessage();
         return userLogin + "," + fileName;
     }
 
     private void listen() {
-        var messagePacket = socketListenPort2.receive();
-        String message = DatagramPacketBuilder.toString(messagePacket);
+        var message = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
         switch (message) {
             case Message.FILE_LIST:
                 returnFileList();
                 break;
             case Message.DOWNLOAD:
-                returnFile();
+                try {
+                    returnFile();
+                } catch (UnknownHostException e) {
+                    LOGGER.severe("Cannot established client address " + e.getMessage());
+                }
                 break;
             default:
                 break;
@@ -134,8 +152,24 @@ public class Client {
         socketSend.send(joinedFiles, serverAddress, PORT.SERVER_CONSUMER);
     }
 
-    private void returnFile() {
+    private void returnFile() throws UnknownHostException {
+        var portToSend = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
+        var addrToSend = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
+        InetAddress addr = InetAddress.getByName(addrToSend);
+        var fileName = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
+        var fileExists = User.getFiles().stream()
+                .anyMatch(file -> Objects.equals(file, fileName));
+        if (!fileExists) {
+            sendToClient("false", addr, portToSend);
+            return;
+        }
+        sendToClient("true", addr, portToSend);
+        socketSend.send("Hello from another user\nFile: " + fileName,
+                addr, Integer.valueOf(portToSend));
+    }
 
+    private void sendToClient(String message, InetAddress address, String port) {
+        socketSend.send(message, address, Integer.valueOf(port));
     }
 
     private String getMessage() {
