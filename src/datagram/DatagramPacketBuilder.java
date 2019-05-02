@@ -7,7 +7,7 @@ import java.util.logging.Logger;
 
 public final class DatagramPacketBuilder {
 
-    private static final int BUFFER_SIZE = 1024;
+    public static final int BUFFER_SIZE = 1024;
     private static final Logger LOGGER = Logger.getLogger(DatagramPacketBuilder.class.getName());
 
     public static DatagramPacket build(String message, InetAddress address, int port) {

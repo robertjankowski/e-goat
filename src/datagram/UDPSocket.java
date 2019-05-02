@@ -54,6 +54,14 @@ public class UDPSocket {
         send(message, address, port, "Unable to send message\n");
     }
 
+    public void send(byte[] bytesArray, int offset, InetAddress address, int port) {
+        try {
+            socket.send(new DatagramPacket(bytesArray, offset, address, port));
+        } catch (IOException e) {
+            LOGGER.severe(e.getMessage());
+        }
+    }
+
     public void close() {
         socket.close();
     }

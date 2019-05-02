@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 public class User {
 
-    private static final String SHARED_FOLDER = "src/client/shared";
+    public static final String SHARED_FOLDER = "src/client/shared";
     private String login;
     private InetAddress address;
     private String randomPort1;

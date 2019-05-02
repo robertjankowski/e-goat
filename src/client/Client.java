@@ -7,13 +7,20 @@ import user.User;
 import utils.ClientOptions;
 import utils.PORT;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.file.FileSystems;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class Client {
@@ -38,7 +45,9 @@ public class Client {
     }
 
     public void runClient() {
-        login();
+        while (!login()) {
+            waitMilisecond();
+        }
         while (true) {
             executor.submit(this::listen);
             sendRequests();
@@ -51,6 +60,10 @@ public class Client {
         System.out.print("Login: ");
         login = getMessage();
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
+        var doesUserExists = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        if (Boolean.valueOf(doesUserExists)) {
+            System.out.println("User with the same login already exists, try again");
+        }
         var welcomeMessage = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
         System.out.println(welcomeMessage);
         return true;
@@ -107,8 +120,21 @@ public class Client {
             return;
         }
 
-        var file = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
-        System.out.println(file);
+        var fileName = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        var file = getFileWithPath(fileName);
+        try (var fos = new FileOutputStream(file)) {
+            while (true) {
+                ByteBuffer bf = ByteBuffer.wrap(socketListenPort1.receive().getData());
+                int length = bf.getInt();
+                if (length == 0)
+                    break;
+                byte[] byteArray = socketListenPort1.receive().getData();
+                fos.write(byteArray, 0, length);
+            }
+            fos.flush();
+        } catch (IOException e) {
+            LOGGER.severe("Unable to initialize file " + e.getMessage());
+        }
     }
 
     private boolean validateRequests(String errorMessage) {
@@ -164,12 +190,36 @@ public class Client {
             return;
         }
         sendToClient("true", addr, portToSend);
-        socketSend.send("Hello from another user\nFile: " + fileName,
-                addr, Integer.valueOf(portToSend));
+        var newFile = login + "_" + fileName;
+        sendToClient(newFile, addr, portToSend);
+
+        var file = getFileWithPath(fileName);
+        try (var fis = new FileInputStream(file)) {
+            int count;
+            var byteArray = new byte[DatagramPacketBuilder.BUFFER_SIZE];
+            while ((count = fis.read(byteArray)) != -1) {
+                var lengthBytes = ByteBuffer.allocate(4).putInt(count).array();
+                socketSend.send(lengthBytes, 4, addr, Integer.valueOf(portToSend));
+                waitMilisecond();
+                socketSend.send(byteArray, count, addr, Integer.valueOf(portToSend));
+                waitMilisecond();
+            }
+        } catch (IOException e) {
+            LOGGER.severe("Unable to initialize file " + e.getMessage());
+        }
+        byte[] lengthBytes = {0};
+        socketSend.send(lengthBytes, 1, addr, Integer.valueOf(portToSend));
     }
 
     private void sendToClient(String message, InetAddress address, String port) {
         socketSend.send(message, address, Integer.valueOf(port));
+    }
+
+    private File getFileWithPath(String fileName) {
+        return FileSystems.getDefault()
+                .getPath(User.SHARED_FOLDER + "/" + fileName)
+                .toAbsolutePath()
+                .toFile();
     }
 
     private String getMessage() {
@@ -186,6 +236,14 @@ public class Client {
             LOGGER.severe("Wrong option" + ex.getMessage());
         }
         return ClientOptions.NONE;
+    }
+
+    private void waitMilisecond() {
+        try {
+            TimeUnit.MILLISECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            LOGGER.severe(e.getMessage());
+        }
     }
 
     private void printOptions() {

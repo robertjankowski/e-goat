@@ -58,12 +58,14 @@ public class ServerConsumer extends Server {
         user.setLogin(DatagramPacketBuilder.toString(loginPacket));
         var isUserExists = users.stream()
                 .anyMatch(u -> u.getLogin().equals(user.getLogin()));
-        if (!isUserExists) {
-            sendWelcomeMessage(user);
-            users.add(user);
-        } else {
-            sendUserExistsMessage(user);
+        if (isUserExists) {
+            sendMessageToUser(user, "true");
+            return;
         }
+        sendMessageToUser(user, "false");
+        sendWelcomeMessage(user);
+        users.add(user);
+
     }
 
     private void handleFileList() {
@@ -118,7 +120,6 @@ public class ServerConsumer extends Server {
     private void removeUserFromList() {
         var toRemovedUser = DatagramPacketBuilder.receiveAndReturnString(socket);
         users.removeIf(u -> u.getLogin().equals(toRemovedUser));
-        users.forEach(System.out::println);
     }
 
     private void sendRandomPorts(User user) {
@@ -133,11 +134,6 @@ public class ServerConsumer extends Server {
 
     private void sendWelcomeMessage(User user) {
         String message = buildWelcomeMessage(user);
-        sendMessageToUser(user, message);
-    }
-
-    private void sendUserExistsMessage(User user) {
-        String message = "User already exists, please try again.";
         sendMessageToUser(user, message);
     }
 
