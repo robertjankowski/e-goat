@@ -39,17 +39,18 @@ public class User {
     }
 
     public static List<String> getFiles() {
-        List<String> files = null;
-        var path = FileSystems.getDefault().getPath(SHARED_FOLDER).toAbsolutePath();
+        var path = FileSystems.getDefault()
+                .getPath(SHARED_FOLDER)
+                .toAbsolutePath();
         try (var dir = Files.list(path)) {
-            files = dir
+            return dir
                     .filter(Files::isRegularFile)
                     .map(Path::getFileName)
                     .map(Path::toString).collect(Collectors.toList());
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return files;
+        return null;
     }
 
     public static String listOfFilesToString(List<String> files) {
@@ -94,5 +95,9 @@ public class User {
 
     public String getLogin() {
         return login;
+    }
+
+    public boolean hasListOfFiles() {
+        return files.isEmpty();
     }
 }

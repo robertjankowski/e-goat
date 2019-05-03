@@ -19,10 +19,6 @@ public final class DatagramPacketBuilder {
         return new DatagramPacket(new byte[BUFFER_SIZE], BUFFER_SIZE);
     }
 
-    public static String toString(DatagramPacket packet, int offset) {
-        return new String(packet.getData(), offset, packet.getLength(), StandardCharsets.UTF_8);
-    }
-
     public static String toString(DatagramPacket packet) {
         return new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
     }

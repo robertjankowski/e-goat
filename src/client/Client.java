@@ -46,7 +46,7 @@ public class Client {
 
     public void runClient() {
         while (!login()) {
-            waitMilisecond();
+            waitMillisecond();
         }
         while (true) {
             executor.submit(this::listen);
@@ -120,21 +120,24 @@ public class Client {
             return;
         }
 
-        var fileName = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        var listenPort = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        var fileTransferSocket = new UDPSocket(Integer.valueOf(listenPort));
+        var fileName = DatagramPacketBuilder.receiveAndReturnString(fileTransferSocket);
         var file = getFileWithPath(fileName);
         try (var fos = new FileOutputStream(file)) {
             while (true) {
-                ByteBuffer bf = ByteBuffer.wrap(socketListenPort1.receive().getData());
+                ByteBuffer bf = ByteBuffer.wrap(fileTransferSocket.receive().getData());
                 int length = bf.getInt();
                 if (length == 0)
                     break;
-                byte[] byteArray = socketListenPort1.receive().getData();
+                byte[] byteArray = fileTransferSocket.receive().getData();
                 fos.write(byteArray, 0, length);
             }
             fos.flush();
         } catch (IOException e) {
             LOGGER.severe("Unable to initialize file " + e.getMessage());
         }
+        fileTransferSocket.close();
     }
 
     private boolean validateRequests(String errorMessage) {
@@ -168,6 +171,7 @@ public class Client {
                 }
                 break;
             default:
+                LOGGER.severe("Unrecognized message type");
                 break;
         }
     }
@@ -181,7 +185,7 @@ public class Client {
     private void returnFile() throws UnknownHostException {
         var portToSend = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
         var addrToSend = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
-        InetAddress addr = InetAddress.getByName(addrToSend);
+        var addr = InetAddress.getByName(addrToSend);
         var fileName = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
         var fileExists = User.getFiles().stream()
                 .anyMatch(file -> Objects.equals(file, fileName));
@@ -191,24 +195,29 @@ public class Client {
         }
         sendToClient("true", addr, portToSend);
         var newFile = login + "_" + fileName;
-        sendToClient(newFile, addr, portToSend);
 
+        // manage huge file transfer
+        int newPort = PORT.getRandomPort();
+        sendToClient(String.valueOf(newPort), addr, portToSend);
+        waitMillisecond();
+
+        sendToClient(newFile, addr, String.valueOf(newPort));
         var file = getFileWithPath(fileName);
         try (var fis = new FileInputStream(file)) {
             int count;
             var byteArray = new byte[DatagramPacketBuilder.BUFFER_SIZE];
             while ((count = fis.read(byteArray)) != -1) {
                 var lengthBytes = ByteBuffer.allocate(4).putInt(count).array();
-                socketSend.send(lengthBytes, 4, addr, Integer.valueOf(portToSend));
-                waitMilisecond();
-                socketSend.send(byteArray, count, addr, Integer.valueOf(portToSend));
-                waitMilisecond();
+                socketSend.send(lengthBytes, 4, addr, newPort);
+                waitMillisecond();
+                socketSend.send(byteArray, count, addr, newPort);
+                waitMillisecond();
             }
         } catch (IOException e) {
             LOGGER.severe("Unable to initialize file " + e.getMessage());
         }
         byte[] lengthBytes = {0};
-        socketSend.send(lengthBytes, 1, addr, Integer.valueOf(portToSend));
+        socketSend.send(lengthBytes, 1, addr, newPort);
     }
 
     private void sendToClient(String message, InetAddress address, String port) {
@@ -238,7 +247,7 @@ public class Client {
         return ClientOptions.NONE;
     }
 
-    private void waitMilisecond() {
+    private void waitMillisecond() {
         try {
             TimeUnit.MILLISECONDS.sleep(1);
         } catch (InterruptedException e) {

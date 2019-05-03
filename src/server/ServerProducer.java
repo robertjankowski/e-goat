@@ -16,7 +16,11 @@ public class ServerProducer extends Server {
         var packet = socket.receive();
         var user = new User(packet.getAddress());
         var event = new Message(DatagramPacketBuilder.toString(packet), user);
-        eventsQueue.add(event);
+        try {
+            eventsQueue.put(event);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
 }

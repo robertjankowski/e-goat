@@ -54,18 +54,17 @@ public class ServerConsumer extends Server {
 
     private void handleLogin(User user) {
         sendRandomPorts(user);
-        var loginPacket = socket.receive();
-        user.setLogin(DatagramPacketBuilder.toString(loginPacket));
+        var login = DatagramPacketBuilder.receiveAndReturnString(socket);
+        user.setLogin(login);
         var isUserExists = users.stream()
                 .anyMatch(u -> u.getLogin().equals(user.getLogin()));
         if (isUserExists) {
-            sendMessageToUser(user, "true");
+            sendMessageToUserRequest(user, "true");
             return;
         }
-        sendMessageToUser(user, "false");
+        sendMessageToUserRequest(user, "false");
         sendWelcomeMessage(user);
         users.add(user);
-
     }
 
     private void handleFileList() {
@@ -78,7 +77,6 @@ public class ServerConsumer extends Server {
         socket.send(allFiles, user.getAddress(), Integer.valueOf(user.getRandomPort1()));
     }
 
-
     private void handleDownloadFile() {
         var askUserLogin = DatagramPacketBuilder.receiveAndReturnString(socket);
         var askUser = getUserWithLoginName(askUserLogin);
@@ -89,21 +87,21 @@ public class ServerConsumer extends Server {
 
         var user = getUserWithLoginName(login);
         if (user.getLogin().isEmpty()) {
-            sendMessageToUser(askUser, "false");
+            sendMessageToUserRequest(askUser, "false");
             return;
         }
         boolean doesUserExists = users.stream()
                 .anyMatch(u -> u.getLogin().equals(user.getLogin()));
         if (!doesUserExists) {
-            sendMessageToUser(askUser, "false");
+            sendMessageToUserRequest(askUser, "false");
             return;
         }
-        sendMessageToUser(askUser, "true");
+        sendMessageToUserRequest(askUser, "true");
 
-        socket.send(Message.DOWNLOAD, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
-        socket.send(askUser.getRandomPort1(), user.getAddress(), Integer.valueOf(user.getRandomPort2()));
-        socket.send(askUser.getAddress().getHostName(), user.getAddress(), Integer.valueOf(user.getRandomPort2()));
-        socket.send(fileName, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+        sendMessageToListenUser(user, Message.DOWNLOAD);
+        sendMessageToListenUser(user, askUser.getRandomPort1());
+        sendMessageToListenUser(user, askUser.getAddress().getHostName());
+        sendMessageToListenUser(user, fileName);
     }
 
     private String[] receiveLoginAndFilename() {
@@ -134,11 +132,19 @@ public class ServerConsumer extends Server {
 
     private void sendWelcomeMessage(User user) {
         String message = buildWelcomeMessage(user);
-        sendMessageToUser(user, message);
+        sendMessageToUserRequest(user, message);
     }
 
-    private void sendMessageToUser(User user, String message) {
-        socket.send(message, user.getAddress(), Integer.valueOf(user.getRandomPort1()));
+    private void sendMessageToUser(User user, String message, String port) {
+        socket.send(message, user.getAddress(), Integer.valueOf(port));
+    }
+
+    private void sendMessageToUserRequest(User user, String message) {
+        sendMessageToUser(user, message, user.getRandomPort1());
+    }
+
+    private void sendMessageToListenUser(User user, String message) {
+        sendMessageToUser(user, message, user.getRandomPort2());
     }
 
     private List<User> getExcludedUsers(User user) {
@@ -148,7 +154,7 @@ public class ServerConsumer extends Server {
     }
 
     private List<String> getFilesFromUser(User user) {
-        socket.send(Message.FILE_LIST, user.getAddress(), Integer.valueOf(user.getRandomPort2()));
+        sendMessageToListenUser(user, Message.FILE_LIST);
         var files = DatagramPacketBuilder.receiveAndReturnString(socket);
         return User.listOfFileToList(files);
     }
