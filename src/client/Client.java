@@ -7,12 +7,20 @@ import user.User;
 import utils.ClientOptions;
 import utils.PORT;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.file.FileSystems;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class Client {
@@ -28,7 +36,7 @@ public class Client {
 
     public Client() {
         try {
-            serverAddress = InetAddress.getByName("localhost");
+            serverAddress = InetAddress.getByName("192.168.0.25");
         } catch (UnknownHostException ex) {
             LOGGER.severe("Unable to establish server address");
         }
@@ -37,20 +45,28 @@ public class Client {
     }
 
     public void runClient() {
-        login();
+        while (!login()) {
+            waitMillisecond();
+        }
         while (true) {
             executor.submit(this::listen);
             sendRequests();
         }
     }
 
-    private void login() {
+    private boolean login() {
         socketSend.send(Message.LOGIN, serverAddress, PORT.SERVER_PRODUCER);
         receiveRandomPorts();
         System.out.print("Login: ");
         login = getMessage();
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
-        System.out.println(receiveWelcomeMessage());
+        var doesUserExists = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        if (Boolean.valueOf(doesUserExists)) {
+            System.out.println("User with the same login already exists, try again");
+        }
+        var welcomeMessage = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        System.out.println(welcomeMessage);
+        return true;
     }
 
     private void receiveRandomPorts() {
@@ -62,11 +78,6 @@ public class Client {
         socketListenPort2 = new UDPSocket(randomPort2);
     }
 
-    private String receiveWelcomeMessage() {
-        var message = socketListenPort1.receive();
-        return DatagramPacketBuilder.toString(message);
-    }
-
     private void sendRequests() {
         var option = selectOption();
         switch (option) {
@@ -74,6 +85,7 @@ public class Client {
                 System.out.println(filesList());
                 break;
             case DOWNLOAD:
+                downloadFile();
                 break;
             case EXIT:
                 sendGoodBye();
@@ -91,21 +103,75 @@ public class Client {
     private String filesList() {
         socketSend.send(Message.FILE_LIST, serverAddress, PORT.SERVER_PRODUCER);
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
-        var files = socketListenPort1.receive();
-        return DatagramPacketBuilder.toString(files);
+        return DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
     }
 
+    private void downloadFile() {
+        socketSend.send(Message.DOWNLOAD, serverAddress, PORT.SERVER_PRODUCER);
+        socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
+
+        var loginFile = getFileAndUserLogin();
+        socketSend.send(loginFile, serverAddress, PORT.SERVER_CONSUMER);
+
+        if (!validateRequests("User with this name does not exist!")) {
+            return;
+        }
+        if (!validateRequests("User does not have file with this name!")) {
+            return;
+        }
+
+        var listenPort = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        var fileTransferSocket = new UDPSocket(Integer.valueOf(listenPort));
+        var fileName = DatagramPacketBuilder.receiveAndReturnString(fileTransferSocket);
+        var file = getFileWithPath(fileName);
+        try (var fos = new FileOutputStream(file)) {
+            while (true) {
+                ByteBuffer bf = ByteBuffer.wrap(fileTransferSocket.receive().getData());
+                int length = bf.getInt();
+                if (length == 0)
+                    break;
+                byte[] byteArray = fileTransferSocket.receive().getData();
+                fos.write(byteArray, 0, length);
+            }
+            fos.flush();
+        } catch (IOException e) {
+            LOGGER.severe("Unable to initialize file " + e.getMessage());
+        }
+        fileTransferSocket.close();
+    }
+
+    private boolean validateRequests(String errorMessage) {
+        var isValidate = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
+        if (!Boolean.valueOf(isValidate)) {
+            System.out.println(errorMessage);
+            return false;
+        }
+        return true;
+    }
+
+    private String getFileAndUserLogin() {
+        System.out.print("Choose login: ");
+        var userLogin = getMessage();
+        System.out.print("Choose name of file: ");
+        var fileName = getMessage();
+        return userLogin + "," + fileName;
+    }
 
     private void listen() {
-        var messagePacket = socketListenPort2.receive();
-        String message = DatagramPacketBuilder.toString(messagePacket);
+        var message = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
         switch (message) {
             case Message.FILE_LIST:
                 returnFileList();
                 break;
             case Message.DOWNLOAD:
+                try {
+                    returnFile();
+                } catch (UnknownHostException e) {
+                    LOGGER.severe("Cannot established client address " + e.getMessage());
+                }
                 break;
             default:
+                LOGGER.severe("Unrecognized message type");
                 break;
         }
     }
@@ -114,6 +180,55 @@ public class Client {
         List<String> files = User.getFiles();
         String joinedFiles = User.listOfFilesToString(files);
         socketSend.send(joinedFiles, serverAddress, PORT.SERVER_CONSUMER);
+    }
+
+    private void returnFile() throws UnknownHostException {
+        var portToSend = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
+        var addrToSend = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
+        var addr = InetAddress.getByName(addrToSend);
+        var fileName = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
+        var fileExists = User.getFiles().stream()
+                .anyMatch(file -> Objects.equals(file, fileName));
+        if (!fileExists) {
+            sendToClient("false", addr, portToSend);
+            return;
+        }
+        sendToClient("true", addr, portToSend);
+        var newFile = login + "_" + fileName;
+
+        // manage huge file transfer
+        int newPort = PORT.getRandomPort();
+        sendToClient(String.valueOf(newPort), addr, portToSend);
+        waitMillisecond();
+
+        sendToClient(newFile, addr, String.valueOf(newPort));
+        var file = getFileWithPath(fileName);
+        try (var fis = new FileInputStream(file)) {
+            int count;
+            var byteArray = new byte[DatagramPacketBuilder.BUFFER_SIZE];
+            while ((count = fis.read(byteArray)) != -1) {
+                var lengthBytes = ByteBuffer.allocate(4).putInt(count).array();
+                socketSend.send(lengthBytes, 4, addr, newPort);
+                waitMillisecond();
+                socketSend.send(byteArray, count, addr, newPort);
+                waitMillisecond();
+            }
+        } catch (IOException e) {
+            LOGGER.severe("Unable to initialize file " + e.getMessage());
+        }
+        byte[] lengthBytes = {0};
+        socketSend.send(lengthBytes, 1, addr, newPort);
+    }
+
+    private void sendToClient(String message, InetAddress address, String port) {
+        socketSend.send(message, address, Integer.valueOf(port));
+    }
+
+    private File getFileWithPath(String fileName) {
+        return FileSystems.getDefault()
+                .getPath(User.SHARED_FOLDER + "/" + fileName)
+                .toAbsolutePath()
+                .toFile();
     }
 
     private String getMessage() {
@@ -130,6 +245,14 @@ public class Client {
             LOGGER.severe("Wrong option" + ex.getMessage());
         }
         return ClientOptions.NONE;
+    }
+
+    private void waitMillisecond() {
+        try {
+            TimeUnit.MILLISECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            LOGGER.severe(e.getMessage());
+        }
     }
 
     private void printOptions() {

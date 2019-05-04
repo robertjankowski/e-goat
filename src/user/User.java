@@ -5,7 +5,6 @@ import java.net.InetAddress;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -13,7 +12,7 @@ import java.util.stream.Collectors;
 
 public class User {
 
-    private static final String SHARED_FOLDER = "src/client/shared";
+    public static final String SHARED_FOLDER = "src/client/shared";
     private String login;
     private InetAddress address;
     private String randomPort1;
@@ -24,12 +23,8 @@ public class User {
         this.address = address;
     }
 
-    public User(String login, InetAddress address, String randomPort1, String randomPort2) {
-        this.login = login;
-        this.address = address;
-        this.randomPort1 = randomPort1;
-        this.randomPort2 = randomPort2;
-        files = new ArrayList<>();
+    public User() {
+        this.login = "";
     }
 
     @Override
@@ -44,17 +39,18 @@ public class User {
     }
 
     public static List<String> getFiles() {
-        List<String> files = null;
-        var path = FileSystems.getDefault().getPath(SHARED_FOLDER).toAbsolutePath();
+        var path = FileSystems.getDefault()
+                .getPath(SHARED_FOLDER)
+                .toAbsolutePath();
         try (var dir = Files.list(path)) {
-            files = dir
+            return dir
                     .filter(Files::isRegularFile)
                     .map(Path::getFileName)
                     .map(Path::toString).collect(Collectors.toList());
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return files;
+        return null;
     }
 
     public static String listOfFilesToString(List<String> files) {
@@ -99,5 +95,9 @@ public class User {
 
     public String getLogin() {
         return login;
+    }
+
+    public boolean hasListOfFiles() {
+        return files.isEmpty();
     }
 }
