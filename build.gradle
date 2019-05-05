@@ -7,9 +7,11 @@ repositories {
     jcenter()
 }
 
-dependencies {
-    implementation 'com.google.guava:guava:27.0.1-jre'
-    testImplementation 'junit:junit:4.12'
+sourceSets.main.java.srcDirs = ['src']
+
+compileJava {
+    targetCompatibility = 11
+    sourceCompatibility = 11
 }
 
 buildScan {
@@ -17,5 +19,7 @@ buildScan {
     termsOfServiceAgree = 'yes'
 }
 
-mainClassName = 'server.MainServer'
-
+task server(type: JavaExec) {
+    main = 'server.MainServer'
+    classpath = sourceSets.main.runtimeClasspath
+}
