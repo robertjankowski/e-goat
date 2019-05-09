@@ -7,19 +7,7 @@ repositories {
     jcenter()
 }
 
-sourceSets.main.java.srcDirs = ['src']
-
-compileJava {
-    targetCompatibility = 11
-    sourceCompatibility = 11
-}
-
 buildScan {
     termsOfServiceUrl = 'https://gradle.com/terms-of-service'
     termsOfServiceAgree = 'yes'
 }
-
-// task server(type: JavaExec) {
-//     main = 'server.MainServer'
-//     classpath = sourceSets.main.runtimeClasspath
-// }
