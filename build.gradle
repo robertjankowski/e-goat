@@ -19,7 +19,7 @@ buildScan {
     termsOfServiceAgree = 'yes'
 }
 
-task server(type: JavaExec) {
-    main = 'server.MainServer'
-    classpath = sourceSets.main.runtimeClasspath
-}
+// task server(type: JavaExec) {
+//     main = 'server.MainServer'
+//     classpath = sourceSets.main.runtimeClasspath
+// }
