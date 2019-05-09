@@ -4,11 +4,6 @@
 # e-goat
 P2P file transfer using UDP protocol
 
-### Authors
-Robert Jankowski [@robertjankowski](https://github.com/robertjankowski)
-
-Łukasz Bożek     [@xxlukasz11](https://github.com/xxlukasz11)
-
 ## Architecture of the program
 
 1. Client logs to server which is always running (main thread for client)
@@ -29,3 +24,14 @@ Robert Jankowski [@robertjankowski](https://github.com/robertjankowski)
   <img title="Server diagram" src="images/e-goat-server.png" width="35%"/>
   <img title="Client diagram" src="images/e-goat-client.png" width="45%"/>
 </p>
+
+## Usage 
+![example_usage](images/example.gif)
+
+## Installation 
+
+
+### Authors
+Robert Jankowski [@robertjankowski](https://github.com/robertjankowski)
+
+Łukasz Bożek     [@xxlukasz11](https://github.com/xxlukasz11)
