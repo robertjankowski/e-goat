@@ -35,7 +35,7 @@ public class Client {
 
     public Client() {
         try {
-            serverAddress = InetAddress.getByName("192.168.0.25");
+            serverAddress = InetAddress.getByName("localhost");
         } catch (UnknownHostException ex) {
             LOGGER.severe("Unable to establish server address");
         }
