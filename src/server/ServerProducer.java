@@ -13,13 +13,15 @@ public class ServerProducer extends Server {
     }
 
     public void run() {
-        var packet = socket.receive();
-        var user = new User(packet.getAddress());
-        var event = new Message(DatagramPacketBuilder.toString(packet), user);
-        try {
-            eventsQueue.put(event);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        var packet = socket.receive(100);
+        if (packet.getPort() > 0) {
+            var user = new User(packet.getAddress());
+            var event = new Message(DatagramPacketBuilder.toString(packet), user);
+            try {
+                eventsQueue.put(event);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 

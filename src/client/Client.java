@@ -20,7 +20,6 @@ import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class Client {
@@ -46,7 +45,7 @@ public class Client {
 
     public void runClient() {
         while (!login()) {
-            waitMillisecond();
+            UDPSocket.waitMilliseconds(1);
         }
         while (true) {
             executor.submit(this::listen);
@@ -63,6 +62,7 @@ public class Client {
         var doesUserExists = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
         if (Boolean.valueOf(doesUserExists)) {
             System.out.println("User with the same login already exists, try again");
+            return false;
         }
         var welcomeMessage = DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
         System.out.println(welcomeMessage);
@@ -199,7 +199,7 @@ public class Client {
         // manage huge file transfer
         int newPort = PORT.getRandomPort();
         sendToClient(String.valueOf(newPort), addr, portToSend);
-        waitMillisecond();
+        UDPSocket.waitMilliseconds(1);
 
         sendToClient(newFile, addr, String.valueOf(newPort));
         var file = getFileWithPath(fileName);
@@ -209,9 +209,9 @@ public class Client {
             while ((count = fis.read(byteArray)) != -1) {
                 var lengthBytes = ByteBuffer.allocate(4).putInt(count).array();
                 socketSend.send(lengthBytes, 4, addr, newPort);
-                waitMillisecond();
+                UDPSocket.waitMilliseconds(1);
                 socketSend.send(byteArray, count, addr, newPort);
-                waitMillisecond();
+                UDPSocket.waitMilliseconds(1);
             }
         } catch (IOException e) {
             LOGGER.severe("Unable to initialize file " + e.getMessage());
@@ -245,14 +245,6 @@ public class Client {
             LOGGER.severe("Wrong option" + ex.getMessage());
         }
         return ClientOptions.NONE;
-    }
-
-    private void waitMillisecond() {
-        try {
-            TimeUnit.MILLISECONDS.sleep(1);
-        } catch (InterruptedException e) {
-            LOGGER.severe(e.getMessage());
-        }
     }
 
     private void printOptions() {

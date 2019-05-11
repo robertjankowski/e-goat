@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class UDPSocket {
@@ -33,7 +34,7 @@ public class UDPSocket {
             socket.receive(packet);
             socket.setSoTimeout(timeout);
         } catch (IOException ex) {
-            LOGGER.severe("Unable to receive message" + "\n" + ex.getMessage());
+            waitMilliseconds(1);
         }
         return packet;
     }
@@ -64,6 +65,15 @@ public class UDPSocket {
 
     public void close() {
         socket.close();
+    }
+
+
+    public static void waitMilliseconds(int millis) {
+        try {
+            TimeUnit.MILLISECONDS.sleep(millis);
+        } catch (InterruptedException e) {
+            LOGGER.severe(e.getMessage());
+        }
     }
 
 }
