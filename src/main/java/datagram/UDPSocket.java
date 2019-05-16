@@ -28,6 +28,14 @@ public class UDPSocket {
         }
     }
 
+    public UDPSocket(int port, InetAddress address) {
+        try {
+            socket = new DatagramSocket(port, address);
+        } catch (IOException e) {
+            LOGGER.severe("Unable to initialize socket");
+        }
+    }
+
     public DatagramPacket receive(int timeout) {
         var packet = DatagramPacketBuilder.create();
         try {
