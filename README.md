@@ -31,6 +31,13 @@ P2P file transfer using UDP protocol
 ## Installation 
 
 
+## Building jar
+Before specify the main class in `pom.xml`.
+```bash
+mvn clean install
+mvn assembly:assembly
+```
+
 ### Authors
 Robert Jankowski [@robertjankowski](https://github.com/robertjankowski)
 
