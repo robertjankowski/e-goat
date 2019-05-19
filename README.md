@@ -1,5 +1,4 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/robertjankowski/e-goat/badge)](https://www.codefactor.io/repository/github/robertjankowski/e-goat)
-[![Build Status](https://travis-ci.com/robertjankowski/e-goat.svg?branch=master)](https://travis-ci.com/robertjankowski/e-goat)
 
 # e-goat
 P2P file transfer using UDP protocol
@@ -13,10 +12,10 @@ P2P file transfer using UDP protocol
         - client sends message to get all available files from all other clients
         - server receives message and asks each client for files (on client listen port)
         - server sends list of files to the client
-    - `GET_FILES` (after client decides to choose which file to dowload)
+    - `GET_FILES` (after client decides to choose which file to download)
         - client sends request to server with name of file and name of client who has this file
         - server asks client with file to send the file to the client who asked for it
-        - clients start transfering files
+        - clients start transferring files
     - `EXIT` 
         - terminate program 
   
@@ -28,15 +27,18 @@ P2P file transfer using UDP protocol
 ## Usage 
 ![example_usage](images/example.gif)
 
-## Installation 
-
-
-## Building jar
+## Build and run jar
 Before specify the main class in `pom.xml`.
 ```bash
 mvn clean install
 mvn assembly:assembly
 ```
+Then run as follows (both server and client)
+```bash
+java -jar `jar_file.jar` ip
+```
+Where `ip` could be `localhost` or wifi ip (in Windows `ipconfig`, Linux `ifconfig`).
+
 
 ### Authors
 Robert Jankowski [@robertjankowski](https://github.com/robertjankowski)

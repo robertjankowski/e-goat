@@ -8,11 +8,12 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class User {
 
-    public static final String SHARED_FOLDER = "src/main/java/client/shared";
+    private static final Logger LOGGER = Logger.getLogger(User.class.getName());
     private String login;
     private InetAddress address;
     private String randomPort1;
@@ -38,9 +39,9 @@ public class User {
         return "\tLOGIN: " + login + "\n\tFILES:\n" + filesString;
     }
 
-    public static List<String> getFiles() {
+    public static List<String> getFiles(String pathToFiles) {
         var path = FileSystems.getDefault()
-                .getPath(SHARED_FOLDER)
+                .getPath(pathToFiles)
                 .toAbsolutePath();
         try (var dir = Files.list(path)) {
             return dir
@@ -48,7 +49,7 @@ public class User {
                     .map(Path::getFileName)
                     .map(Path::toString).collect(Collectors.toList());
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.severe("Wrong path to files!");
         }
         return null;
     }
@@ -95,9 +96,5 @@ public class User {
 
     public String getLogin() {
         return login;
-    }
-
-    public boolean hasListOfFiles() {
-        return files.isEmpty();
     }
 }
