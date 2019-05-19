@@ -12,11 +12,12 @@ public class MainServer {
     private ServerProducer serverProducer;
     private ServerConsumer serverConsumer;
     private ExecutorService executor;
+    private static final int MAX_CAPACITY = 10;
 
-    public MainServer() {
-        var eventsQueue = new ArrayBlockingQueue<Message>(Server.MAX_CAPACITY);
-        serverProducer = new ServerProducer(eventsQueue, PORT.SERVER_PRODUCER);
-        serverConsumer = new ServerConsumer(eventsQueue, PORT.SERVER_CONSUMER);
+    public MainServer(String ip) {
+        var eventsQueue = new ArrayBlockingQueue<Message>(MAX_CAPACITY);
+        serverProducer = new ServerProducer(eventsQueue, PORT.SERVER_PRODUCER, ip);
+        serverConsumer = new ServerConsumer(eventsQueue, PORT.SERVER_CONSUMER, ip);
         executor = Executors.newSingleThreadExecutor();
     }
 
@@ -28,7 +29,7 @@ public class MainServer {
     }
 
     public static void main(String[] args) {
-        MainServer server = new MainServer();
+        MainServer server = new MainServer(args[0]);
         server.runServer();
     }
 }

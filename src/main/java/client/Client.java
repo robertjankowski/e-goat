@@ -32,10 +32,16 @@ public class Client {
     private UDPSocket socketListenPort2;
     private String login;
     private ExecutorService executor;
+    private String pathToFile;
 
-    public Client() {
+    /**
+     * To find `ip` use `ifconfig` in Linux or `ipconfig` in Windows
+     * If you want to run locally just paste `localhost`
+     * @param ip
+     */
+    public Client(String ip) {
         try {
-            serverAddress = InetAddress.getByName("192.168.0.24");
+            serverAddress = InetAddress.getByName(ip);
         } catch (UnknownHostException ex) {
             LOGGER.severe("Unable to establish server address");
         }
@@ -47,12 +53,21 @@ public class Client {
         while (!login()) {
             UDPSocket.waitMilliseconds(1);
         }
+        while(setPathToFile()) {
+            UDPSocket.waitMilliseconds(1);
+        }
         while (true) {
             executor.submit(this::listen);
             sendRequests();
         }
     }
 
+    /**
+     * Client send login message to server and receive random ports for communication
+     * - randomPort1 -> receiving messages in main loop
+     * - randomPort2 -> receiving messages in listening mode
+     * @return true if user with login not exists, otherwise false
+     */
     private boolean login() {
         socketSend.send(Message.LOGIN, serverAddress, PORT.SERVER_PRODUCER);
         receiveRandomPorts();
@@ -78,6 +93,26 @@ public class Client {
         socketListenPort2 = new UDPSocket(randomPort2);
     }
 
+    /**
+     * User specify folder with sharing files
+     * @return true if path is correct, false otherwise
+     */
+    private boolean setPathToFile(){
+        System.out.println("Set path to folder with files: ");
+        this.pathToFile = getMessage();
+        if (User.getFiles(this.pathToFile) == null) {
+            System.out.println("Wrong path to file try again!");
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * After login and set path to files the user has 3 options
+     * FILE_LIST   -   ask the server for all files from all the clients connected currently to server
+     * DOWNLOAD    -   send to the server login and file name of client and start transferring file
+     * EXIT        -   logout and terminate application
+     */
     private void sendRequests() {
         var option = selectOption();
         switch (option) {
@@ -95,17 +130,16 @@ public class Client {
         }
     }
 
-    private void sendGoodBye() {
-        socketSend.send(Message.EXIT, serverAddress, PORT.SERVER_PRODUCER);
-        socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
-    }
-
     private String filesList() {
         socketSend.send(Message.FILE_LIST, serverAddress, PORT.SERVER_PRODUCER);
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
         return DatagramPacketBuilder.receiveAndReturnString(socketListenPort1);
     }
 
+    /**
+     * Server validate user name and file
+     * Start transferring file on different port (non blocking option)
+     */
     private void downloadFile() {
         socketSend.send(Message.DOWNLOAD, serverAddress, PORT.SERVER_PRODUCER);
         socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
@@ -157,6 +191,18 @@ public class Client {
         return userLogin + "," + fileName;
     }
 
+    private void sendGoodBye() {
+        socketSend.send(Message.EXIT, serverAddress, PORT.SERVER_PRODUCER);
+        socketSend.send(login, serverAddress, PORT.SERVER_CONSUMER);
+    }
+
+    /**
+     * Thread for handle requests, 2 options
+     * FILE_LIST   -   send all files in folder
+     * DOWNLOAD    -   get from server port and address to whom send file,
+     *                 check if file exists
+     *                 initialize random port for transferring file
+     */
     private void listen() {
         var message = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
         switch (message) {
@@ -177,7 +223,7 @@ public class Client {
     }
 
     private void returnFileList() {
-        List<String> files = User.getFiles();
+        List<String> files = User.getFiles(pathToFile);
         String joinedFiles = User.listOfFilesToString(files);
         socketSend.send(joinedFiles, serverAddress, PORT.SERVER_CONSUMER);
     }
@@ -187,7 +233,8 @@ public class Client {
         var addrToSend = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
         var addr = InetAddress.getByName(addrToSend);
         var fileName = DatagramPacketBuilder.receiveAndReturnString(socketListenPort2);
-        var fileExists = User.getFiles().stream()
+        var fileExists = User.getFiles(pathToFile)
+                .stream()
                 .anyMatch(file -> Objects.equals(file, fileName));
         if (!fileExists) {
             sendToClient("false", addr, portToSend);
@@ -226,7 +273,7 @@ public class Client {
 
     private File getFileWithPath(String fileName) {
         return FileSystems.getDefault()
-                .getPath(User.SHARED_FOLDER + "/" + fileName)
+                .getPath(pathToFile + "/" + fileName)
                 .toAbsolutePath()
                 .toFile();
     }

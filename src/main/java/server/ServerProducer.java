@@ -8,10 +8,13 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 public class ServerProducer extends Server {
 
-    public ServerProducer(ArrayBlockingQueue<Message> eventsQueue, int port) {
-        super(eventsQueue, port);
+    public ServerProducer(ArrayBlockingQueue<Message> eventsQueue, int port, String ip) {
+        super(eventsQueue, port, ip);
     }
 
+    /**
+     * Receive messages from the clients and add to queue
+     */
     public void run() {
         var packet = socket.receive(100);
         if (packet.getPort() > 0) {

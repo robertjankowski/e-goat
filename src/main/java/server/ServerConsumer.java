@@ -17,8 +17,8 @@ public class ServerConsumer extends Server {
     private static final Logger LOGGER = Logger.getLogger(ServerConsumer.class.getName());
     private List<User> users;
 
-    public ServerConsumer(ArrayBlockingQueue<Message> eventsQueue, int port) {
-        super(eventsQueue, port);
+    public ServerConsumer(ArrayBlockingQueue<Message> eventsQueue, int port, String ip) {
+        super(eventsQueue, port, ip);
         users = new ArrayList<>();
     }
 
@@ -31,6 +31,15 @@ public class ServerConsumer extends Server {
         }
     }
 
+    /**
+     * Get the message from the queue and handle it
+     * LOGIN       -   get login from the client and check if the user already exists
+     * FILE_LIST   -   get from all users (except the asking ones) all the files and return them
+     * DOWNLOAD    -   receive filename and username and validate them
+     *                 send to client (listening mode) port, address, and filename the client who was asking
+     * EXIT        -   delete user from the list
+     * @param message - an event type to handle
+     */
     private void handleEvent(Message message) {
         System.out.println(message.getMessage());
         switch (message.getMessage()) {
@@ -166,7 +175,6 @@ public class ServerConsumer extends Server {
     }
 
     private String buildWelcomeMessage(User user) {
-        String message = "\n\tWelcome on e-goat server\n";
-        return message + "\t" + user.toString();
+        return "\n\tWelcome on e-goat server\n\t" + user.toString();
     }
 }
