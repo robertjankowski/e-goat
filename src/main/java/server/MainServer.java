@@ -29,6 +29,10 @@ public class MainServer {
     }
 
     public static void main(String[] args) {
+        if (args.length < 1) {
+            System.out.println("Specify IP as argument");
+            System.exit(-1);
+        }
         MainServer server = new MainServer(args[0]);
         server.runServer();
     }
