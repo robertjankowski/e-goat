@@ -3,6 +3,7 @@
 # e-goat
 P2P file transfer using UDP protocol
 
+
 ## Architecture of the program
 
 1. Client logs to server which is always running (main thread for client)
@@ -26,6 +27,34 @@ P2P file transfer using UDP protocol
 
 ## Usage 
 ![example_usage](images/example.gif)
+
+
+## Technology
+
+- Java 11
+- Maven
+
+## Installation
+
+```bash
+sudo apt-get update
+sudo apt-get install openjdk-11-jdk
+sudo apt-get install maven
+```
+
+Check version
+```bash
+java -version
+
+openjdk version "11.0.3" 2019-04-16
+...
+```
+```bash
+mvn -version
+
+Apache Maven 3.6.0
+...
+```
 
 ## Build and run jar
 Before specify the main class in `pom.xml`.
